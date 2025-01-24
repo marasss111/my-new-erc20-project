@@ -38,7 +38,18 @@ describe("AstanaITUniversity_se2328", function () {
     expect(savedSender).to.equal(owner.address);
     expect(savedReceiver).to.equal(addr1.address);
 
-    const hrTimestamp = await token.getLatestBlockTimestampHumanReadable(txHash);
-    console.log("Human-readable Timestamp:", hrTimestamp);
+
+    const humanReadableJS = convertTimestampToReadable(blockTimestamp);
+    console.log("Human-readable Timestamp (GMT 0):", humanReadableJS);
   });
+
+  function convertTimestampToReadable(unixTimestamp) {
+    const date = new Date(unixTimestamp * 1000); 
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); 
+    const year = date.getUTCFullYear();
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
 });
