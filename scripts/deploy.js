@@ -1,4 +1,5 @@
 async function main() {
+    const [deployer] = await ethers.getSigners();
     const Token = await ethers.getContractFactory("AstanaITUniversity_se2328");
     const token = await Token.deploy();  
     await token.waitForDeployment();    

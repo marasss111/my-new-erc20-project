@@ -13,8 +13,10 @@ contract AstanaITUniversity_se2328 is ERC20 {
     }
 
     mapping(bytes32 => TransferInfo) public transactions;
+    address public owner;
 
-    constructor() ERC20("AstanaITUniversity_se2328", "AITU2328") {
+    constructor(address _owner) ERC20("AstanaITUniversity_se2328", "AITU2328") {
+        owner = _owner;
         _mint(msg.sender, 2000 * 10**decimals());
     }
 
@@ -44,20 +46,21 @@ contract AstanaITUniversity_se2328 is ERC20 {
         bool success = super.transferFrom(from, to, amount);
         if (success) {
             bytes32 txHash = keccak256(
-                abi.encodePacked(
-                    from,
+                abi.encode(
+                    msg.sender,
                     to,
                     amount,
                     block.timestamp,
                     block.number
                 )
             );
-            transactions[txHash] = TransferInfo(
-                from,
-                to,
-                amount,
-                block.timestamp
-            );
+        transactions[txHash] = TransferInfo({
+                sender: msg.sender,
+                receiver: to,
+                amount: amount,
+                timestamp: block.timestamp
+            }
+        );
         }
         return success;
     }
