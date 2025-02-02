@@ -133,6 +133,9 @@ npx hardhat test
 If tests are successful, you should see output indicating that all test cases passed.
 
 ## Screenshots
+![image1](https://github.com/user-attachments/assets/f30e1278-fcb6-4ddf-8a44-a28c0fdb8af7)
+![image2](https://github.com/user-attachments/assets/9f90a34c-6fba-40dd-b005-e45fb7c11285)
+![image3](https://github.com/user-attachments/assets/920473db-8a14-4d77-8104-aad4b51fcbe8)
 
 
 ## License
