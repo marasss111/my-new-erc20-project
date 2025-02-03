@@ -1,94 +1,110 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract AstanaITUniversity_se2328 is ERC20 {
+    event TransferDetails(
+        address indexed sender,
+        address indexed receiver,
+        uint256 amount,
+        uint256 timestamp
+    );
 
-    struct TransferInfo {
+    struct TransferRecord {
         address sender;
         address receiver;
         uint256 amount;
         uint256 timestamp;
     }
 
-    mapping(bytes32 => TransferInfo) public transactions;
-    address public owner;
+    TransferRecord public recentTransfer;
 
-    constructor(address _owner) ERC20("AstanaITUniversity_se2328", "AITU2328") {
-        owner = _owner;
+    constructor() ERC20("AstanaITUniversity_se2328", "AITU2328") {
         _mint(msg.sender, 2000 * 10**decimals());
     }
 
-    function transfer(address to, uint256 amount) public virtual override returns (bool) {
-        bool success = super.transfer(to, amount);
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        bool success = super.transfer(recipient, amount);
         if (success) {
-            bytes32 txHash = keccak256(
-                abi.encodePacked(
-                    msg.sender,
-                    to,
-                    amount,
-                    block.timestamp,
-                    block.number
-                )
-            );
-            transactions[txHash] = TransferInfo(
-                msg.sender,
-                to,
-                amount,
-                block.timestamp
-            );
+            recentTransfer = TransferRecord(msg.sender, recipient, amount, block.timestamp);
+            emit TransferDetails(msg.sender, recipient, amount, block.timestamp);
         }
         return success;
     }
 
-    function transferFrom(address from, address to, uint256 amount) public virtual override returns (bool) {
-        bool success = super.transferFrom(from, to, amount);
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        bool success = super.transferFrom(sender, recipient, amount);
         if (success) {
-            bytes32 txHash = keccak256(
-                abi.encode(
-                    msg.sender,
-                    to,
-                    amount,
-                    block.timestamp,
-                    block.number
-                )
-            );
-        transactions[txHash] = TransferInfo({
-                sender: msg.sender,
-                receiver: to,
-                amount: amount,
-                timestamp: block.timestamp
-            }
+            recentTransfer = TransferRecord(sender, recipient, amount, block.timestamp);
+            emit TransferDetails(sender, recipient, amount, block.timestamp);
+        }
+        return success;
+    }
+
+    function getRecentTransfer() public view returns (address, address, uint256, uint256) {
+        return (
+            recentTransfer.sender,
+            recentTransfer.receiver,
+            recentTransfer.amount,
+            recentTransfer.timestamp
         );
+    }
+
+    function getTransferTimestamp() public view returns (uint256) {
+        return recentTransfer.timestamp;
+    }
+
+    function getTransferSender() public view returns (address) {
+        return recentTransfer.sender;
+    }
+
+    function getTransferReceiver() public view returns (address) {
+        return recentTransfer.receiver;
+    }
+
+    function getFormattedTimestamp() public view returns (string memory) {
+        return convertTimestampToString(recentTransfer.timestamp);
+    }
+
+    function convertTimestampToString(uint256 timestamp) internal view returns (string memory) {
+        uint256 SECONDS_IN_DAY = 86400;
+        uint256 SECONDS_IN_HOUR = 3600;
+        uint256 SECONDS_IN_MINUTE = 60;
+
+        uint16 year = 1970;
+        uint8 month;
+        uint8 day;
+
+        uint256 daysSinceEpoch = timestamp / SECONDS_IN_DAY;
+
+        while (true) {
+            uint256 daysInYear = isLeapYear(year) ? 366 : 365;
+            if (daysSinceEpoch < daysInYear) {
+                break;
+            }
+            daysSinceEpoch -= daysInYear;
+            year++;
         }
-        return success;
-    }
 
-    function getTransactionInfo(bytes32 _txHash) public view returns (address, address, uint256, uint256) {
-        TransferInfo memory info = transactions[_txHash];
-        return (info.sender, info.receiver, info.amount, info.timestamp);
-    }
+        uint8[12] memory daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        if (isLeapYear(year)) {
+            daysInMonth[1] = 29;
+        }
 
-    function getSender(bytes32 _txHash) public view returns (address) {
-        return transactions[_txHash].sender;
-    }
+        for (month = 0; month < 12; month++) {
+            if (daysSinceEpoch < daysInMonth[month]) {
+                break;
+            }
+            daysSinceEpoch -= daysInMonth[month];
+        }
 
-    function getReceiver(bytes32 _txHash) public view returns (address) {
-        return transactions[_txHash].receiver;
-    }
+        day = uint8(daysSinceEpoch + 1);
+        month += 1; // Convert from zero-based index to 1-based month representation
 
-    function getLatestBlockTimestampHumanReadable(bytes32 _txHash) public view returns (string memory) {
-        uint256 timestamp = transactions[_txHash].timestamp;
-        return uintToString(timestamp);
-    }
-
-    function formatTimestamp(uint256 _timestamp) internal pure returns (string memory) {
-        uint256 day = (_timestamp / 86400) % 31 + 1; // Calculate day
-        uint256 month = (_timestamp / 2592000) % 12 + 1; // Calculate month
-        uint256 year = 1970 + _timestamp / 31536000; // Calculate year
-        uint256 hour = (_timestamp % 86400) / 3600; // Calculate hour
-        uint256 minute = (_timestamp % 3600) / 60; // Calculate minute
+        uint256 remainingSeconds = timestamp % SECONDS_IN_DAY;
+        uint8 hour = uint8(remainingSeconds / SECONDS_IN_HOUR);
+        uint8 minute = uint8((remainingSeconds % SECONDS_IN_HOUR) / SECONDS_IN_MINUTE);
 
         return string(
             abi.encodePacked(
@@ -98,24 +114,37 @@ contract AstanaITUniversity_se2328 is ERC20 {
         );
     }
 
-    function uintToString(uint256 v) internal pure returns (string memory) {
-        if (v == 0) {
+    function isLeapYear(uint16 year) internal pure returns (bool) {
+        if (year % 4 != 0) {
+            return false;
+        }
+        if (year % 100 == 0 && year % 400 != 0) {
+            return false;
+        }
+        return true;
+    }
+
+    function uintToString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
             return "0";
         }
-        uint256 j = v;
-        uint256 len;
-        while (j != 0) {
-            len++;
-            j /= 10;
+        uint256 temp = value;
+        uint256 length;
+        while (temp != 0) {
+            length++;
+            temp /= 10;
         }
-        bytes memory bstr = new bytes(len);
-        uint256 k = len;
-        while (v != 0) {
-            k = k - 1;
-            uint8 temp = uint8(48 + v % 10);
-            bstr[k] = bytes1(temp);
-            v /= 10;
+        bytes memory result = new bytes(length);
+        uint256 index = length - 1;
+        while (value != 0) {
+            result[index] = bytes1(uint8(48 + value % 10));
+            value /= 10;
+            if (index > 0) {
+                index--;
+            } else {
+                break;
+            }
         }
-        return string(bstr);
+        return string(result);
     }
 }
