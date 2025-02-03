@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "chai": "^5.1.2",
     "ethers": "^6.13.5"
   }
 }
