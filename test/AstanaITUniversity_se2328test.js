@@ -1,108 +1,112 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("AstanaITUniversity_se2328", function () {
+describe("AstanaITUniversity_se2328 Token", function () {
     let Token, token, owner, addr1, addr2;
 
     beforeEach(async function () {
         [owner, addr1, addr2] = await ethers.getSigners();
         Token = await ethers.getContractFactory("AstanaITUniversity_se2328");
-        token = await Token.deploy(owner.address);
+        token = await Token.deploy();
         await token.waitForDeployment();
+        console.log("Contract deployed at:", token.target);
     });
 
     it("Should have correct name and symbol", async function () {
-        const name = await token.name();
-        const symbol = await token.symbol();
-        console.log(`Token Name: ${name}, Symbol: ${symbol}`);
-        expect(name).to.equal("AstanaITUniversity_se2328");
-        expect(symbol).to.equal("AITU2328");
+        console.log("Checking token name and symbol...");
+        expect(await token.name()).to.equal("AstanaITUniversity_se2328");
+        expect(await token.symbol()).to.equal("AITU2328");
     });
 
-    it("Should assign initial supply to owner", async function () {
+    it("Should assign the correct initial supply to the owner", async function () {
         const ownerBalance = await token.balanceOf(owner.address);
-        console.log(`Owner Initial Balance: ${ownerBalance.toString()}`);
+        console.log("Owner initial balance:", ethers.formatUnits(ownerBalance, 18));
         expect(ownerBalance).to.equal(ethers.parseUnits("2000", 18));
     });
 
-    it("Should transfer tokens between accounts", async function () {
+    it("Should transfer tokens correctly", async function () {
+        console.log("Transferring 100 tokens from owner to addr1...");
         await token.transfer(addr1.address, ethers.parseUnits("100", 18));
+
         const balance = await token.balanceOf(addr1.address);
-        console.log(`addr1 Balance after transfer: ${balance.toString()}`);
-        expect(balance).to.equal(ethers.parseUnits("100", 18));
-    });
+        console.log("Addr1 balance after transfer:", ethers.formatUnits(balance, 18));
 
-    it("Should record transfer transactions", async function () {
-        const tx = await token.transfer(addr1.address, ethers.parseUnits("50", 18));
-        const receipt = await tx.wait();
-        const blockTimestamp = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
-
-        const txHash = ethers.keccak256(
-            ethers.solidityPacked([
-                "address", "address", "uint256", "uint256", "uint256"
-            ], [owner.address, addr1.address, ethers.parseUnits("50", 18), blockTimestamp, receipt.blockNumber])
-        );
-        console.log(`Transaction Hash: ${txHash}`);
-
-        const transferInfo = await token.getTransactionInfo(txHash);
-        console.log(`Transfer Info: Sender - ${transferInfo[0]}, Receiver - ${transferInfo[1]}, Amount - ${transferInfo[2]}`);
-        expect(transferInfo[0]).to.equal(owner.address);
-        expect(transferInfo[1]).to.equal(addr1.address);
-        expect(transferInfo[2]).to.equal(ethers.parseUnits("50", 18));
-    });
-
-    it("Should transferFrom with approval", async function () {
-        await token.approve(addr1.address, ethers.parseUnits("50", 18));
-        await token.connect(addr1).transferFrom(owner.address, addr2.address, ethers.parseUnits("50", 18));
-        const balance = await token.balanceOf(addr2.address);
-        console.log(`addr2 Balance after transferFrom: ${balance.toString()}`);
-        expect(balance).to.equal(ethers.parseUnits("50", 18));
-    });
-
-    it("Should retrieve sender and receiver from transaction hash", async function () {
-        const tx = await token.transfer(addr1.address, ethers.parseUnits("75", 18));
-        const receipt = await tx.wait();
-        const blockTimestamp = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
-
-        const txHash = ethers.keccak256(
-            ethers.solidityPacked([
-                "address", "address", "uint256", "uint256", "uint256"
-            ], [owner.address, addr1.address, ethers.parseUnits("75", 18), blockTimestamp, receipt.blockNumber])
-        );
-        console.log(`Transaction Hash: ${txHash}`);
-
-        const sender = await token.getSender(txHash);
-        const receiver = await token.getReceiver(txHash);
-        console.log(`Sender: ${sender}, Receiver: ${receiver}`);
+        const [sender, receiver, amount, timestamp] = await token.getRecentTransfer();
+        console.log("Last Transfer:", sender, "->", receiver, "Amount:", ethers.formatUnits(amount, 18));
 
         expect(sender).to.equal(owner.address);
         expect(receiver).to.equal(addr1.address);
+        expect(amount).to.equal(ethers.parseUnits("100", 18));
+        expect(timestamp).to.be.gt(0);
     });
 
-    it("Should convert timestamp to string", async function () {
-        const tx = await token.transfer(addr1.address, ethers.parseUnits("30", 18));
-        const receipt = await tx.wait();
-        const blockTimestamp = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
+    it("Should store transaction details correctly", async function () {
+        await token.transfer(addr1.address, ethers.parseUnits("50", 18));
 
-        const txHash = ethers.keccak256(
-            ethers.solidityPacked([
-                "address", "address", "uint256", "uint256", "uint256"
-            ], [owner.address, addr1.address, ethers.parseUnits("30", 18), blockTimestamp, receipt.blockNumber])
-        );
-        console.log(`Transaction Hash: ${txHash}`);
+        const sender = await token.getTransferSender();
+        const receiver = await token.getTransferReceiver();
+        const timestamp = await token.getTransferTimestamp();
 
-        const humanReadableJS = convertTimestampToReadable(blockTimestamp);
-        console.log("Human-readable Timestamp (GMT 0):", humanReadableJS);
+        console.log("Last transaction sender:", sender);
+        console.log("Last transaction receiver:", receiver);
+        console.log("Last transaction timestamp:", timestamp);
+
+        expect(sender).to.equal(owner.address);
+        expect(receiver).to.equal(addr1.address);
+        expect(timestamp).to.be.gt(0);
     });
 
-    function convertTimestampToReadable(unixTimestamp) {
-        const date = new Date(unixTimestamp * 1000);
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const year = date.getUTCFullYear();
-        const hours = String(date.getUTCHours()).padStart(2, '0');
-        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    it("Should allow transferFrom with approval", async function () {
+        console.log("Approving addr1 to transfer 50 tokens from owner...");
+        await token.approve(addr1.address, ethers.parseUnits("50", 18));
 
+        console.log("Addr1 transferring 50 tokens from owner to addr2...");
+        await token.connect(addr1).transferFrom(owner.address, addr2.address, ethers.parseUnits("50", 18));
+
+        const balance = await token.balanceOf(addr2.address);
+        console.log("Addr2 balance after transferFrom:", ethers.formatUnits(balance, 18));
+
+        const [sender, receiver, amount] = await token.getRecentTransfer();
+        console.log("Last Transfer:", sender, "->", receiver, "Amount:", ethers.formatUnits(amount, 18));
+
+        expect(sender).to.equal(owner.address);
+        expect(receiver).to.equal(addr2.address);
+        expect(amount).to.equal(ethers.parseUnits("50", 18));
+    });
+
+    it("Should format timestamp correctly", async function () {
+        await token.transfer(addr1.address, ethers.parseUnits("30", 18));
+
+        const formattedTime = await token.getFormattedTimestamp();
+        console.log("Formatted timestamp:", formattedTime);
+
+        expect(formattedTime).to.match(/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}$/);
+    });
+
+    it("Should emit TransferDetails event on transfer", async function () {
+        const amount = ethers.parseUnits("25", 18);
+        console.log("Transferring", ethers.formatUnits(amount, 18), "tokens...");
+
+        // Get the expected block timestamp before the transaction
+        const blockTimestamp = (await ethers.provider.getBlock("latest")).timestamp;
+
+        await expect(token.transfer(addr1.address, amount))
+            .to.emit(token, "TransferDetails")
+            .withArgs(owner.address, addr1.address, amount, blockTimestamp + 1); // Adjust for the next block
+
+        console.log("TransferDetails event emitted.");
+    });
+
+
+    it("Should not allow transfers exceeding balance", async function () {
+        console.log("Attempting to transfer more tokens than available...");
+        await expect(
+            token.connect(addr1).transfer(addr2.address, ethers.parseUnits("5000", 18))
+        ).to.be.reverted;
+    });
+
+    async function getBlockTimestamp() {
+        const block = await ethers.provider.getBlock("latest");
+        return block.timestamp;
     }
 });
