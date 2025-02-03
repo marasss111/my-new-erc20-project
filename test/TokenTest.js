@@ -1,55 +1,53 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("AstanaITUniversity_se2328", function () {
-  let Token, token;
-  let owner, addr1, addr2;
+describe("AstanaITUniversity_se2328 Token", function () {
+  let Token, token, owner, addr1, addr2;
 
   beforeEach(async function () {
     [owner, addr1, addr2] = await ethers.getSigners();
     Token = await ethers.getContractFactory("AstanaITUniversity_se2328");
     token = await Token.deploy();
-    await token.waitForDeployment();
   });
 
-  it("should transfer tokens and store transaction info", async function () {
-    const tx = await token.transfer(addr1.address, 100);
-    const receipt = await tx.wait();
-    const blockNumber = receipt.blockNumber;
-    const blockData = await ethers.provider.getBlock(blockNumber);
-    const blockTimestamp = blockData.timestamp;
-
-    const txHash = ethers.solidityPackedKeccak256(
-      ["address", "address", "uint256", "uint256", "uint256"],
-      [owner.address, addr1.address, 100, blockTimestamp, blockNumber]
-    );
-
-    const transactionInfo = await token.getTransactionInfo(txHash);
-    console.log("Transaction Info:", transactionInfo);
-
-    const [sender, receiver, amount, timestamp] = transactionInfo;
-    expect(sender).to.equal(owner.address);
-    expect(receiver).to.equal(addr1.address);
-    expect(amount).to.equal(100);
-    expect(timestamp).to.equal(blockTimestamp);
-
-    const savedSender = await token.getSender(txHash);
-    const savedReceiver = await token.getReceiver(txHash);
-    expect(savedSender).to.equal(owner.address);
-    expect(savedReceiver).to.equal(addr1.address);
-
-
-    const humanReadableJS = convertTimestampToReadable(blockTimestamp);
-    console.log("Human-readable Timestamp (GMT 0):", humanReadableJS);
+  it("Should deploy with correct initial supply", async function () {
+    const totalSupply = await token.totalSupply();
+    expect(totalSupply).to.equal(2000n * 10n ** 18n);
   });
 
-  function convertTimestampToReadable(unixTimestamp) {
-    const date = new Date(unixTimestamp * 1000); 
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); 
-    const year = date.getUTCFullYear();
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  }
+  it("Should transfer tokens successfully", async function () {
+    await token.transfer(addr1.address, 100n * 10n ** 18n);
+    expect(await token.balanceOf(addr1.address)).to.equal(100n * 10n ** 18n);
+
+    const recentTransfer = await token.getRecentTransfer();
+    expect(recentTransfer[0]).to.equal(owner.address);
+    expect(recentTransfer[1]).to.equal(addr1.address);
+    expect(recentTransfer[2]).to.equal(100n * 10n ** 18n);
+  });
+
+  it("Should approve and transferFrom tokens successfully", async function () {
+    await token.approve(addr1.address, 50n * 10n ** 18n);
+    await token.connect(addr1).transferFrom(owner.address, addr2.address, 50n * 10n ** 18n);
+
+    expect(await token.balanceOf(addr2.address)).to.equal(50n * 10n ** 18n);
+
+    const recentTransfer = await token.getRecentTransfer();
+    expect(recentTransfer[0]).to.equal(owner.address);
+    expect(recentTransfer[1]).to.equal(addr2.address);
+    expect(recentTransfer[2]).to.equal(50n * 10n ** 18n);
+  });
+
+  it("Should return correct transfer details", async function () {
+    await token.transfer(addr1.address, 100n * 10n ** 18n);
+
+    expect(await token.getTransferSender()).to.equal(owner.address);
+    expect(await token.getTransferReceiver()).to.equal(addr1.address);
+    expect(BigInt(await token.getTransferTimestamp())).to.be.a("bigint");
+  });
+
+  it("Should not transfer if sender does not have enough balance", async function () {
+    await expect(
+        token.connect(addr1).transfer(addr2.address, 500n * 10n ** 18n)
+    ).to.be.reverted;
+  });
 });
