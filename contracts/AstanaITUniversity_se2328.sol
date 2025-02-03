@@ -83,6 +83,21 @@ contract AstanaITUniversity_se2328 is ERC20 {
         return uintToString(timestamp);
     }
 
+    function formatTimestamp(uint256 _timestamp) internal pure returns (string memory) {
+        uint256 day = (_timestamp / 86400) % 31 + 1; // Calculate day
+        uint256 month = (_timestamp / 2592000) % 12 + 1; // Calculate month
+        uint256 year = 1970 + _timestamp / 31536000; // Calculate year
+        uint256 hour = (_timestamp % 86400) / 3600; // Calculate hour
+        uint256 minute = (_timestamp % 3600) / 60; // Calculate minute
+
+        return string(
+            abi.encodePacked(
+                uintToString(day), "/", uintToString(month), "/", uintToString(year),
+                " ", uintToString(hour), ":", uintToString(minute)
+            )
+        );
+    }
+
     function uintToString(uint256 v) internal pure returns (string memory) {
         if (v == 0) {
             return "0";
